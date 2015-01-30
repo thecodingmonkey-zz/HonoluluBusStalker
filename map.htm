@@ -1,0 +1,176 @@
+
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html>
+  <head>
+    <title>Honolulu Bus Stalker 1.0</title>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+    <style type="text/css">
+      html { height: 100% }
+      body { height: 100%; margin: 0; padding: 0 }
+      #map_canvas { height: 100% }
+    </style>
+     <style type="text/css">
+   .labels {
+     color: red;
+     background-color: white;
+     font-family: "Lucida Grande", "Arial", sans-serif;
+     font-size: 10px;
+     font-weight: bold;
+     text-align: center;
+     width: 40px;     
+     border: 2px solid black;
+     white-space: nowrap;
+   }
+ </style>
+
+    <script type="text/javascript"
+      src="http://maps.googleapis.com/maps/api/js?sensor=false">
+    </script>
+
+
+    <script type="text/javascript" src="trips.js"></script>
+    <script src="markerwithlabel.js" type="text/javascript"></script>
+
+    <script type="text/javascript">
+        var map;
+        var apikey = "PUT YOUR API KEY HERE"
+        var bus_img = "images/bus.gif"
+        bus_img_changed = "images/bus.gif"
+
+        var latitude, longitude, currentTime, firstTime, lastTime, markers
+        var busNum;
+
+        function loadXMLDoc(url, onchangefunct) {
+            var xmlhttp;
+            if (window.XMLHttpRequest) {// code for IE7+, Firefox, Chrome, Opera, Safari
+                xmlhttp = new XMLHttpRequest();
+            }
+            else {// code for IE6, IE5
+                xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
+            }
+            xmlhttp.onreadystatechange = function () {
+                if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
+                    onchangefunct(xmlhttp.responseXML);
+                }
+            }
+            xmlhttp.open("GET", url, true);
+            xmlhttp.send();
+        }
+
+        function loadTrips() {
+            trips = new Array();
+
+            if (window.XMLHttpRequest) {// code for IE7+, Firefox, Chrome, Opera, Safari
+                xmlhttp = new XMLHttpRequest();
+            }
+            else {// code for IE6, IE5
+                xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
+            }
+            xmlhttp.open("GET", "./trips.txt", false);
+            xmlhttp.send();
+            xmlDoc = xmlhttp.responseText;
+
+            var block_idx = 0, trip_idx = 6;
+            var response = xmlDoc.split("\n\r");
+            var i;
+
+            for( i=1; i < response.length; i++) {
+                var row = response[i].split(",");
+
+                trips[row[trip_idx] ] = row[block_idx].split("_")[1];
+            }
+
+
+        }
+
+        function initialize() {
+            var mapOptions = {
+                center: new google.maps.LatLng(21.3344, -157.888),
+                zoom: 16,
+                mapTypeId: google.maps.MapTypeId.ROADMAP
+            };
+            map = new google.maps.Map(document.getElementById("map_canvas"),
+            mapOptions);
+
+            // messy.  but it'll work
+            latitude = new Array();
+            longitude = new Array();
+
+            markers = new Array();
+
+        }
+
+        setInterval(function() {loadData() }, 10000);
+        loadData();
+
+        function loadData() {
+            var d = new Date();
+            loadXMLDoc("http://api.thebus.org/vehicle/?key=" + apikey + "&time=" + d.getTime().toString(), parseData);
+//            GetXML("iHea_GetLocations.asp?bus=&date=&t=" + d.getTime().toString() , parseData)
+        }
+
+        function parseData(xmlData) {
+
+        	var BusList = xmlData.getElementsByTagName("number");
+        	var LatList = xmlData.getElementsByTagName("latitude");
+        	var LongList = xmlData.getElementsByTagName("longitude");
+        	var DriverList = xmlData.getElementsByTagName("driver");
+        	var MessageList = xmlData.getElementsByTagName("last_message");
+        	var TripList = xmlData.getElementsByTagName("trip");
+                
+    	    for (i = 0; i < BusList.length; i++) {
+	            var bus_str = BusList[i].childNodes[0].nodeValue;
+	            var lat_str =  LatList[i].childNodes[0].nodeValue;
+	            var long_str = LongList[i].childNodes[0].nodeValue;
+                var trip_str = TripList[i].childNodes[0].nodeValue;
+
+	            if (DriverList[i].childNodes[0].nodeValue == "0" || bus_str.length > 3)
+	                continue;
+                    
+                var bus_val = parseInt(bus_str)
+
+                latitude[bus_val] = parseFloat(lat_str)
+                longitude[bus_val] = parseFloat(long_str)
+
+                if (markers[bus_val] == null) {
+                    markers[bus_val] = new MarkerWithLabel ({ //new google.maps.Marker({
+                        map: map,
+                        position: new google.maps.LatLng(latitude[bus_val], longitude[bus_val]),
+                        title: bus_str + " - " + trips[ trip_str ] + " - " + MessageList[i].childNodes[0].nodeValue,
+                        labelContent: trips[ trip_str ],
+                        icon: bus_img,
+                        labelAnchor: new google.maps.Point(0, 10),
+                        labelClass: "labels", // the CSS class for the label
+                        labelStyle: { opacity: 0.75 }
+                    }
+                    );
+
+                    markers[bus_val].setMap(map);
+                }
+                else {
+                    var newPos = new google.maps.LatLng(latitude[bus_val], longitude[bus_val]);
+                    if (newPos != markers[bus_val].getPosition()) {
+
+//                        markers[bus_val].setIcon(bus_img_changed);
+//                        setTimeout(function () { markers[bus_val].setIcon(bus_img) }, 5000);
+
+                        markers[bus_val].setPosition(newPos);
+                        markers[bus_val].setTitle(bus_str + " - " + trips[trip_str] + " - " + MessageList[i].childNodes[0].nodeValue);
+                    }
+                }
+
+            }
+
+        }
+
+        var curMap = null;
+    </script>
+  </head> 
+  <body onload="initialize()">
+    <div id="map_canvas" style="width:100%; height:100%"></div>
+
+  </body>
+</html>
+
